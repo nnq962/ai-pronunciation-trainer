@@ -29,7 +29,7 @@ available_languages = ['de', 'en']
 for language in available_languages:
     df = pd.read_csv(sample_folder+'data_'+language+'.csv',delimiter=';')
     lambda_database[language] = TextDataset(df)
-    lambda_ipa_converter[language] = RuleBasedModels.get_phonem_converter(language)
+    lambda_ipa_converter[language] = RuleBasedModels.EngPhonemConverter()
 
 lambda_translate_new_sample = False
 

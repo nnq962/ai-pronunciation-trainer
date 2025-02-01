@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pronunciation Analysis</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Lexend', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        .content-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .content-row strong {
+            flex-shrink: 0;
+            width: 200px; /* Đặt chiều rộng cố định cho tiêu đề */
+            color: #555;
+        }
+
+        .line {
+            font-family: 'Lexend', monospace;
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: nowrap; /* Không cho phép xuống dòng */
+            border: 1px solid #ddd;
+            flex-grow: 1; /* Cho phép nội dung chiếm toàn bộ không gian còn lại */
+        }
+
+        .highlight-yellow {
+            color: #FFC107;
+            font-weight: bold;
+        }
+
+        .highlight-red {
+            color: red;
+            font-weight: bold;
+        }
+
+        .accuracy {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 14px;
+            margin-top: 30px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pronunciation Analysis Result</h1>
+        
+        <!-- Real transcript -->
+        <div class="content-row">
+            <strong>Real transcript:</strong>
+            <div class="line">{{ colored_words|safe }}</div>
+        </div>
+        
+        <!-- Real transcripts ipa -->
+        <div class="content-row">
+            <strong>Real transcripts ipa:</strong>
+            <div class="line">{{ corrected_ipa|safe }}</div>
+        </div>
+        
+        <!-- Your transcripts ipa -->
+        <div class="content-row">
+            <strong>Your transcripts ipa:</strong>
+            <div class="line">{{ highlighted_ipa|safe }}</div>
+        </div>
+        
+        <!-- Pronunciation Accuracy -->
+        <div class="accuracy">
+            Pronunciation Accuracy: <span style="color: #4CAF50;">{{ pronunciation_accuracy }}%</span>
+        </div>
+        
+        <div class="footer">
+            &copy; 2025 Pronunciation Analysis Tool
+        </div>
+    </div>
+</body>
+</html>
