@@ -1,10 +1,25 @@
-from flask import Flask, render_template
-import requests
+from flask import Flask, render_template, request, jsonify
+import webbrowser
+import os
+from flask_cors import CORS
 import json
+import uuid
+
+import lambdaTTS
+import lambdaSpeechToScore
+import lambdaGetSample
+from mp3_to_base64Audio import process_audio_file_in_memory
+from urllib.parse import urlparse
 import re
 
 app = Flask(__name__)
+cors = CORS(app)
+app.config['CORS_HEADERS'] = '*'
 
+rootPath = ''
+results = {}  # Dictionary lưu trữ kết quả tạm thời
+
+# ----------------------------------------------------------------
 def process_words_with_colors(real_transcripts, ipa_transcript, is_letter_correct_all_words):
     # Tách các từ và các trạng thái từ is_letter_correct_all_words
     real_transcripts_words = real_transcripts.split(" ")
@@ -40,6 +55,7 @@ def process_words_with_colors(real_transcripts, ipa_transcript, is_letter_correc
     # Ghép danh sách lại thành chuỗi HTML
     return " ".join(colored_words)
 
+# ----------------------------------------------------------------
 def highlight_partial_mismatches(real_transcripts_ipa, matched_transcripts_ipa):
     real_syllables = real_transcripts_ipa.split()
     matched_syllables = matched_transcripts_ipa.split()
@@ -87,6 +103,7 @@ def highlight_partial_mismatches(real_transcripts_ipa, matched_transcripts_ipa):
 
     return " ".join(formatted_output)
 
+# ----------------------------------------------------------------
 def highlight_extra_syllables(real_transcripts_ipa, matched_transcripts_ipa):
     real_syllables = real_transcripts_ipa.split()
     matched_syllables = matched_transcripts_ipa.split()
@@ -124,6 +141,7 @@ def highlight_extra_syllables(real_transcripts_ipa, matched_transcripts_ipa):
 
     return " ".join(formatted_output)
 
+# ----------------------------------------------------------------
 def is_small_diff(a: str, b: str) -> bool:
     """
     Kiểm tra xem hai từ có sự khác biệt nhỏ không.
@@ -150,27 +168,7 @@ def is_small_diff(a: str, b: str) -> bool:
     # Nếu khác nhau đúng 1 ký tự, coi là "small diff"
     return diff_count == 1
 
-def highlight_partial_extra_syllables(real_word: str, matched_word: str) -> str:
-    """
-    So sánh từng ký tự và chỉ bôi vàng những ký tự sai thay vì bôi vàng toàn bộ từ.
-    Không tự động thêm ký tự bị thiếu mà chỉ bôi vàng các ký tự có trong matched_word.
-    """
-    output = []
-    min_len = min(len(real_word), len(matched_word))
-
-    for i in range(min_len):
-        if real_word[i] == matched_word[i]:
-            output.append(matched_word[i])
-        else:
-            output.append(f'<span class="highlight-yellow">{matched_word[i]}</span>')
-
-    # Nếu từ có thêm ký tự (dài hơn real_word), bôi vàng phần thừa
-    if len(matched_word) > len(real_word):
-        extra = matched_word[len(real_word):]
-        output.append(f'<span class="highlight-yellow">{extra}</span>')
-
-    return "".join(output)
-
+# ----------------------------------------------------------------
 def is_partial_match(a: str, b: str) -> bool:
     """
     Kiểm tra xem hai từ có sự khác biệt nhỏ không.
@@ -199,6 +197,29 @@ def is_partial_match(a: str, b: str) -> bool:
     # Nếu khác nhau tối đa `max_diff` ký tự, coi là "partial match"
     return diff_count <= max_diff
 
+# ----------------------------------------------------------------
+def highlight_partial_extra_syllables(real_word: str, matched_word: str) -> str:
+    """
+    So sánh từng ký tự và chỉ bôi vàng những ký tự sai thay vì bôi vàng toàn bộ từ.
+    Không tự động thêm ký tự bị thiếu mà chỉ bôi vàng các ký tự có trong matched_word.
+    """
+    output = []
+    min_len = min(len(real_word), len(matched_word))
+
+    for i in range(min_len):
+        if real_word[i] == matched_word[i]:
+            output.append(matched_word[i])
+        else:
+            output.append(f'<span class="highlight-yellow">{matched_word[i]}</span>')
+
+    # Nếu từ có thêm ký tự (dài hơn real_word), bôi vàng phần thừa
+    if len(matched_word) > len(real_word):
+        extra = matched_word[len(real_word):]
+        output.append(f'<span class="highlight-yellow">{extra}</span>')
+
+    return "".join(output)
+
+# ----------------------------------------------------------------
 def refine_yellow_highlights(real_transcripts_ipa: str, highlighted: str):                
     """
     - Kiểm tra lại các từ bị bôi vàng:
@@ -247,40 +268,85 @@ def refine_yellow_highlights(real_transcripts_ipa: str, highlighted: str):
     
     return refined_highlighted, extra_count
 
-@app.route("/")
-def home():
-    # Gửi yêu cầu đến API
-    url = "http://127.0.0.1:3000/GetAccuracyFromRecordedAudio2"
-    headers = {"Content-Type": "application/json"}
-    data = {
-        "mp3_path": "test_4.mp3",
-        "title": "you need to find her",
-        "language": "en"
-    }
+# ----------------------------------------------------------------
+def is_valid_url(url):
+    """Kiểm tra xem chuỗi có phải là URL hợp lệ không."""
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
 
-    response = requests.post(url, headers=headers, data=json.dumps(data))
+# ----------------------------------------------------------------
+@app.route(rootPath+'/')
+def main():
+    return render_template('main.html')
 
-    if response.status_code == 200:
-        # Lấy dữ liệu từ API
-        response_data = response.json()
-        inner_data = json.loads(response_data["data"])
+# ----------------------------------------------------------------
+@app.route(rootPath+'/getAudioFromText', methods=['POST'])
+def getAudioFromText():
+    event = {'body': json.dumps(request.get_json(force=True))}
+    return lambdaTTS.lambda_handler(event, [])
 
-        # Debug: In dữ liệu gốc từ API
+# ----------------------------------------------------------------
+@app.route(rootPath+'/getSample', methods=['POST'])
+def getNext():
+    event = {'body':  json.dumps(request.get_json(force=True))}
+    return lambdaGetSample.lambda_handler(event, [])
+
+# ----------------------------------------------------------------
+@app.route(rootPath+'/GetAccuracyFromRecordedAudio', methods=['POST'])
+def GetAccuracyFromRecordedAudio():
+
+    try:
+        event = {'body': json.dumps(request.get_json(force=True))}
+        lambda_correct_output = lambdaSpeechToScore.lambda_handler(event, [])
+    except Exception as e:
+        print('Error: ', str(e))
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Headers': '*',
+                'Access-Control-Allow-Credentials': "true",
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+            },
+            'body': ''
+        }
+
+    # Lưu kết quả đầy đủ vào `results`
+    results["data"] = lambda_correct_output
+
+    return lambda_correct_output
+
+# ----------------------------------------------------------------
+@app.route(rootPath + '/view')
+def view_result():
+    try:
+        # Lấy kết quả dựa trên UUID
+        result = results.get("data")
         print("-" * 80)
-        print("Full API response:")
-        print(json.dumps(inner_data, indent=2))
-        
-        # Trích xuất thông tin cần thiết
-        real_transcripts = inner_data.get("real_transcripts")
-        ipa_transcript = inner_data.get("ipa_transcript")
-        real_transcripts_ipa = inner_data.get("real_transcripts_ipa")
-        matched_transcripts_ipa = inner_data.get("matched_transcripts_ipa")
-        is_letter_correct_all_words = inner_data.get("is_letter_correct_all_words")
-        pronunciation_accuracy = inner_data.get("pronunciation_accuracy")
-        pair_accuracy_category = inner_data.get("pair_accuracy_category")
+        print(results)
+        print()
+        print(result)
+        if not result:
+            return "Result not found or expired.", 404
 
-        real_transcripts_ipa = "ju nid tɪ faɪnd hər."
-        ipa_transcript = "ju nid tɪ faɪər hər."
+        # Nếu kết quả là chuỗi JSON, chuyển thành dictionary
+        if isinstance(result, str):
+            result = json.loads(result)
+
+        # Trích xuất thông tin cần thiết
+        real_transcripts = result.get("real_transcripts")
+        ipa_transcript = result.get("ipa_transcript")
+        real_transcripts_ipa = result.get("real_transcripts_ipa")
+        matched_transcripts_ipa = result.get("matched_transcripts_ipa")
+        is_letter_correct_all_words = result.get("is_letter_correct_all_words")
+        pronunciation_accuracy = result.get("pronunciation_accuracy")
+        pair_accuracy_category = result.get("pair_accuracy_category")
+
+        if not result:
+            return "No pronunciation data available.", 404
 
         colored_words = process_words_with_colors(real_transcripts, ipa_transcript, is_letter_correct_all_words)
         corrected_ipa = highlight_partial_mismatches(real_transcripts_ipa, matched_transcripts_ipa)
@@ -288,13 +354,14 @@ def home():
         refined_ipa, extra_word_count = refine_yellow_highlights(real_transcripts_ipa, highlighted_ipa)
 
         print("-" * 80)
-        print("old pronunciation_accuracy:", pronunciation_accuracy)
+        print("Original pronunciation_accuracy:", pronunciation_accuracy)
 
         pronunciation_accuracy = int(pronunciation_accuracy)
         adjusted_score = max(pronunciation_accuracy - (extra_word_count * 10), 0)
 
         print("-" * 80)
-        
+
+        # Hiển thị giao diện với dữ liệu
         return render_template(
             "result.html",
             colored_words=colored_words,
@@ -302,8 +369,13 @@ def home():
             highlighted_ipa=refined_ipa,
             pronunciation_accuracy=adjusted_score
         )
-    else:
-        return f"Error: Unable to fetch data from API. Status code: {response.status_code}", 500
+    
+    except Exception as e:
+        print(f"Error occurred: {e}")  # Log lỗi chi tiết
+        return f"Internal Server Error: {e}", 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    language = 'en'
+    print(os.system('pwd'))
+    # webbrowser.open_new('http://127.0.0.1:3000/')
+    app.run(host="0.0.0.0", port=3000, debug=True)
