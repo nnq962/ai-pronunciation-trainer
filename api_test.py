@@ -11,7 +11,7 @@ import lambdaGetSample
 from mp3_to_base64Audio import process_audio_file_in_memory
 from urllib.parse import urlparse
 import re
-from utils import process_words_with_colors, highlight_partial_mismatches, highlight_extra_syllables, refine_yellow_highlights, convert_highlighted_text_to_json, convert_color_style_to_class
+import utils
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -100,20 +100,20 @@ def view_result():
         if not result:
             return "No pronunciation data available.", 404
 
-        colored_words = process_words_with_colors(real_transcripts, ipa_transcript, is_letter_correct_all_words)
-        corrected_ipa = highlight_partial_mismatches(real_transcripts_ipa, matched_transcripts_ipa)
-        highlighted_ipa = highlight_extra_syllables(real_transcripts_ipa, ipa_transcript)
-        refined_ipa, extra_word_count = refine_yellow_highlights(real_transcripts_ipa, highlighted_ipa)
+        result_1 = utils.process_line_1(real_transcripts, is_letter_correct_all_words)
+        result_2 = utils.process_line_2(real_transcripts_ipa, ipa_transcript)
+        result_3, error_count = utils.process_line_3(real_transcripts_ipa, ipa_transcript)
 
         print("-" * 80)
+        print("COUNT =", error_count)
         print("Original pronunciation_accuracy:", pronunciation_accuracy)
 
         pronunciation_accuracy = int(pronunciation_accuracy)
-        adjusted_score = max(pronunciation_accuracy - (extra_word_count * 10), 0)
+        adjusted_score = max(pronunciation_accuracy - (10 * 10), 0)
 
-        line1 = convert_highlighted_text_to_json(highlighted_text=convert_color_style_to_class(colored_words), key_name="Real transcript")
-        line2 = convert_highlighted_text_to_json(highlighted_text=corrected_ipa, key_name="Real transcripts ipa")
-        line3 = convert_highlighted_text_to_json(highlighted_text=refined_ipa, key_name="Your transcripts ipa")
+        line1 = utils.convert_highlighted_text_to_json(highlighted_text=utils.convert_color_style_to_class(result_1), key_name="Real transcript")
+        line2 = utils.convert_highlighted_text_to_json(highlighted_text=result_2, key_name="Real transcripts ipa")
+        line3 = utils.convert_highlighted_text_to_json(highlighted_text=result_3, key_name="Your transcripts ipa")
         line4 = {"Pronunciation Accuracy": adjusted_score}
 
         # Chuyển đổi từ JSON string thành dictionary (Python object)
@@ -140,9 +140,9 @@ def view_result():
         # Hiển thị giao diện với dữ liệu
         return render_template(
             "result.html",
-            colored_words=colored_words,
-            corrected_ipa=corrected_ipa,
-            highlighted_ipa=refined_ipa,
+            colored_words=result_1,
+            corrected_ipa=result_2,
+            highlighted_ipa=result_3,
             pronunciation_accuracy=adjusted_score
         )
     
