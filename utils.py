@@ -369,3 +369,142 @@ def process_line_2_v2(real_transcripts_ipa, ipa_transcript):
             result.append(f'<span class="highlight-red">{html.escape(real_word)}</span>')
     
     return ''.join(result)
+
+# ----------------------------------------------------------------
+def process_line_2_v3(text1, text2):
+    """
+    Tạo HTML cho text1 với các ký tự sai được gom nhóm và bọc trong <span class="highlight-red">
+    
+    Args:
+        text1 (str): Văn bản gốc (chuẩn)
+        text2 (str): Văn bản cần so sánh
+    Returns:
+        str: HTML với các ký tự khác biệt được highlight màu đỏ và gom nhóm
+    """
+    diff = difflib.ndiff(text1, text2)
+    highlighted_text1 = []
+    current_diff = []  # Buffer để lưu các ký tự sai liên tiếp
+    last_was_diff = False  # Flag để theo dõi trạng thái ký tự trước
+    
+    for d in diff:
+        if d[0] == ' ':  # Ký tự giống nhau
+            if last_was_diff and d[2].isspace():  # Nếu là khoảng trắng và ký tự trước là diff
+                current_diff.append(d[2])
+                continue
+                
+            if current_diff:  # Nếu có buffer ký tự sai, thêm vào kết quả
+                highlighted_text1.append(f'<span class="highlight-red">{"".join(current_diff)}</span>')
+                current_diff = []
+            highlighted_text1.append(d[2])
+            last_was_diff = False
+            
+        elif d[0] == '-':  # Ký tự trong text1 khác với text2
+            current_diff.append(d[2])
+            last_was_diff = True
+    
+    # Xử lý buffer cuối cùng nếu có
+    if current_diff:
+        highlighted_text1.append(f'<span class="highlight-red">{"".join(current_diff)}</span>')
+    
+    return ''.join(highlighted_text1)
+
+# ----------------------------------------------------------------
+def process_line_3_v2(text1, text2):
+    """
+    Tạo HTML cho text2 với các ký tự sai/thừa được gom nhóm và bọc trong <span class="highlight-yellow">
+    Đồng thời đếm số từ bị bôi vàng hoàn toàn
+    
+    Args:
+        text1 (str): Văn bản gốc (chuẩn)
+        text2 (str): Văn bản cần so sánh
+    Returns:
+        tuple: (str, int) - (HTML với các ký tự khác biệt được highlight màu vàng, số từ thừa)
+    """
+    diff = list(difflib.ndiff(text1, text2))
+    highlighted_text2 = []
+    current_diff = []  # Buffer để lưu các ký tự sai liên tiếp
+    last_was_diff = False  # Flag để theo dõi trạng thái ký tự trước
+    extra_words = 0  # Đếm số từ thừa
+    highlight_segments = []  # Lưu vị trí bắt đầu và kết thúc của mỗi đoạn highlight
+    start_pos = 0  # Vị trí hiện tại trong text2
+    i = 0
+    
+    while i < len(diff):
+        d = diff[i]
+        
+        if d[0] == ' ':  # Ký tự giống nhau
+            if last_was_diff and d[2].isspace():  # Nếu là khoảng trắng và ký tự trước là diff
+                current_diff.append(d[2])
+            else:
+                if current_diff:  # Nếu có buffer ký tự sai, thêm vào kết quả
+                    diff_text = ''.join(current_diff)
+                    highlighted_text2.append(f'<span class="highlight-yellow">{diff_text}</span>')
+                    current_diff = []
+                highlighted_text2.append(d[2])
+                last_was_diff = False
+            start_pos += 1
+                
+        elif d[0] == '-':  # Ký tự bị thay thế hoặc xóa
+            if i + 1 < len(diff) and diff[i + 1][0] == '+':  # Trường hợp thay thế
+                current_diff.append(diff[i + 1][2])
+                i += 1  # Bỏ qua ký tự '+' tiếp theo
+                last_was_diff = True
+                start_pos += 1
+            else:  # Trường hợp xóa
+                current_diff.append(' ')  # Giữ căn chỉnh
+                last_was_diff = True
+                
+        elif d[0] == '+':  # Ký tự thừa trong text2
+            if not current_diff:  # Bắt đầu một đoạn highlight mới
+                extra_words += 1  # Mỗi đoạn highlight liên tục được tính là một từ thừa
+            current_diff.append(d[2])
+            last_was_diff = True
+            start_pos += 1
+            
+        i += 1
+    
+    # Xử lý buffer cuối cùng nếu có
+    if current_diff:
+        diff_text = ''.join(current_diff)
+        highlighted_text2.append(f'<span class="highlight-yellow">{diff_text}</span>')
+    
+    return ''.join(highlighted_text2), extra_words
+
+# ----------------------------------------------------------------
+def prune_text(reference, text, threshold=0.65):
+    """
+    Lược bỏ các từ thừa trong text dựa theo câu chuẩn reference.
+    Các từ trong text có “sai sót” nhỏ so với từ tương ứng trong reference sẽ được giữ lại.
+    
+    Tham số:
+        reference: chuỗi văn bản chuẩn (ví dụ: "Don't you want to go to the party?")
+        text: chuỗi văn bản cần lược bỏ (ví dụ: "Good morning, Don't yau went this need remove to go to the perty? Thanks")
+        threshold: ngưỡng so sánh (mặc định 0.65). Giá trị nằm trong [0,1]; càng gần 1 thì yêu cầu càng khắt khe.
+    
+    Trả về:
+        Một chuỗi chỉ gồm các từ được giữ lại từ text theo thứ tự xuất hiện, phù hợp với reference.
+    """
+    # Tách câu thành các token (giả sử các từ cách nhau bằng khoảng trắng)
+    ref_tokens = reference.split()
+    text_tokens = text.split()
+    
+    output_tokens = []
+    ref_idx = 0  # chỉ số hiện hành trong ref_tokens
+    text_idx = 0  # chỉ số hiện hành trong text_tokens
+    
+    # Duyệt cho đến khi hết các từ của reference hoặc text
+    while ref_idx < len(ref_tokens) and text_idx < len(text_tokens):
+        ref_word = ref_tokens[ref_idx]
+        candidate = text_tokens[text_idx]
+        
+        # So sánh 2 từ (không phân biệt chữ hoa chữ thường)
+        similarity = difflib.SequenceMatcher(None, candidate.lower(), ref_word.lower()).ratio()
+        
+        if similarity >= threshold:
+            # Nếu “gần giống” với từ chuẩn, giữ lại từ từ text
+            output_tokens.append(candidate)
+            ref_idx += 1  # chuyển sang từ tiếp theo của reference
+        # Nếu không, bỏ qua candidate và kiểm tra từ sau
+        text_idx += 1
+
+    return " ".join(output_tokens)

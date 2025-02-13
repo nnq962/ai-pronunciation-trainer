@@ -157,8 +157,8 @@ def view_result(request_id):
 
         # Xử lý dữ liệu màu sắc
         result_1 = utils.process_line_1(real_transcripts, is_letter_correct_all_words)
-        result_2 = utils.process_line_2(real_transcripts_ipa, ipa_transcript)
-        result_3, error_count = utils.process_line_3(real_transcripts_ipa, ipa_transcript)
+        result_2 = utils.process_line_2_v3(real_transcripts_ipa, ipa_transcript)
+        result_3, error_count = utils.process_line_3_v2(real_transcripts_ipa, ipa_transcript)
 
         print("-" * 80)
         print("Original pronunciation_accuracy:", pronunciation_accuracy)

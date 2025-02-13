@@ -101,15 +101,15 @@ def view_result():
             return "No pronunciation data available.", 404
 
         result_1 = utils.process_line_1(real_transcripts, is_letter_correct_all_words)
-        result_2 = utils.process_line_2(real_transcripts_ipa, ipa_transcript)
-        result_3, error_count = utils.process_line_3(real_transcripts_ipa, ipa_transcript)
+        result_2 = utils.process_line_2_v3(real_transcripts_ipa, ipa_transcript)
+        result_3, error_count = utils.process_line_3_v2(real_transcripts_ipa, ipa_transcript)
 
         print("-" * 80)
         print("COUNT =", error_count)
         print("Original pronunciation_accuracy:", pronunciation_accuracy)
 
         pronunciation_accuracy = int(pronunciation_accuracy)
-        adjusted_score = max(pronunciation_accuracy - (10 * 10), 0)
+        adjusted_score = max(pronunciation_accuracy - (error_count * 10), 0)
 
         line1 = utils.convert_highlighted_text_to_json(highlighted_text=utils.convert_color_style_to_class(result_1), key_name="Real transcript")
         line2 = utils.convert_highlighted_text_to_json(highlighted_text=result_2, key_name="Real transcripts ipa")
@@ -133,7 +133,7 @@ def view_result():
         final_json_str = json.dumps(final_json, ensure_ascii=False, indent=2)
 
         print("\n=== Final JSON Output ===")
-        print(final_json_str)
+        # print(final_json_str)
 
         print("-" * 80)
 
