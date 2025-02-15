@@ -153,6 +153,7 @@ def get_best_mapped_words(words_estimated: list, words_real: list,use_dtw:bool =
     mapped_words, mapped_words_indices = get_resulting_string(
         mapped_indices, words_estimated, words_real)
 
+
     return mapped_words, mapped_words_indices
 
 

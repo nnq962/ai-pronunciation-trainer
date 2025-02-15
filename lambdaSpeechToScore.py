@@ -67,16 +67,18 @@ def lambda_handler(event, context):
         [word[0] for word in result['real_and_transcribed_words']])
     matched_transcripts = ' '.join(
         [word[1] for word in result['real_and_transcribed_words']])
-
+    
+    print(matched_transcripts)
+    
     words_real = real_transcripts.lower().split()
     mapped_words = matched_transcripts.split()
 
     is_letter_correct_all_words = ''
     for idx, word_real in enumerate(words_real):
 
-        mapped_letters, mapped_letters_indices = wm.get_best_mapped_words(
+        mapped_letters, mapped_words_indices = wm.get_best_mapped_words(
             mapped_words[idx], word_real)
-
+        print("Test index", mapped_letters)
         is_letter_correct = wm.getWhichLettersWereTranscribedCorrectly(
             word_real, mapped_letters)  # , mapped_letters_indices)
 
@@ -95,7 +97,8 @@ def lambda_handler(event, context):
            'pair_accuracy_category': pair_accuracy_category,
            'start_time': result['start_time'],
            'end_time': result['end_time'],
-           'is_letter_correct_all_words': is_letter_correct_all_words}
+           'is_letter_correct_all_words': is_letter_correct_all_words,
+           }
 
     return json.dumps(res)
 
