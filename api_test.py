@@ -90,28 +90,34 @@ def view_result():
 
         # Trích xuất thông tin cần thiết
         real_transcripts = result.get("real_transcripts")
-        ipa_transcript = result.get("ipa_transcript")
-        real_transcripts_ipa = result.get("real_transcripts_ipa")
+        ipa_transcript = result.get("ipa_transcript").lower()
+        real_transcripts_ipa = result.get("real_transcripts_ipa").lower()
         matched_transcripts_ipa = result.get("matched_transcripts_ipa")
         is_letter_correct_all_words = result.get("is_letter_correct_all_words")
         pronunciation_accuracy = result.get("pronunciation_accuracy")
-        pair_accuracy_category = result.get("pair_accuracy_category")
+        matched_transcripts = result.get("matched_transcripts")
 
         redundant_ipa = find_leftover_words(matched_transcripts_ipa, normalize_text(ipa_transcript))
-        print('unicode_to_normal', normalize_text(ipa_transcript))
+        print('ipa_transcript', normalize_text(ipa_transcript))
+        print('matched_transcripts', matched_transcripts)
         print("Matched", matched_transcripts_ipa)
         print('redudant', redundant_ipa)
-
-        list_matched_ipa = split_ipa_into_characters(matched_transcripts_ipa)
+        print("real_transcripts_ipa", real_transcripts_ipa)
+        normalize_matched = utils.reinsert_dashes(matched_transcripts, matched_transcripts_ipa)
+        print(normalize_matched)
     
         if not result:
             return "No pronunciation data available.", 404
         
         result_1 = utils.process_line_1(real_transcripts, is_letter_correct_all_words)
         result_2 = utils.process_line_2_v3(real_transcripts_ipa, ipa_transcript)
-        result_3, error_count = utils.process_line_3_v3(real_transcripts_ipa, matched_transcripts_ipa)
-
-        result_4, extra_words = utils.process_line_4_v1(ipa_transcript, result_3, redundant_ipa)
+        loss = utils.compare_ipa(real_transcripts_ipa, normalize_matched)
+        print('loss:', loss)
+        re_ipa_matched = utils.reinsert_missing_ipa(normalize_matched, loss)
+        print('re_ipa_matched', re_ipa_matched)
+        result_3, error_count = utils.process_line_3_v3(real_transcripts_ipa, re_ipa_matched)
+        print("result_3:", result_3)
+        result_4 = utils.process_line_4_v1(ipa_transcript, result_3, redundant_ipa, loss)
  
         print("-" * 80)
         print("COUNT =", error_count)
@@ -172,12 +178,12 @@ def split_ipa_into_characters(matched_transcripts_ipa):
 
 def find_leftover_words(matched_text, transcript_text):
     # Chuẩn hóa: Xóa phần đầu và loại bỏ dấu câu
-    def clean_text(text):
-        text = re.sub(r"[^\wɪʊɔæəɚɑɒɛʌθðŋʃʒˌˈ ]", "", text)  # Xóa dấu câu, giữ ký tự IPA
-        return text.lower().strip().split()
+    # def clean_text(text):
+    #     text = re.sub(r"[^\wɪʊɔæəɚɑɒɛʌθðŋʃʒˌˈ ]", "", text)  # Xóa dấu câu, giữ ký tự IPA
+    #     return text.lower().strip().split()
 
-    matched_tokens = clean_text(matched_text.replace("Matched", ""))
-    transcript_tokens = clean_text(transcript_text.replace("Your transcripts ipa:", ""))
+    matched_tokens = matched_text.lower().strip().split()
+    transcript_tokens = transcript_text.lower().strip().split()
 
     # Lọc ra từ thừa bằng cách duyệt từng phần tử
     matched_temp = matched_tokens.copy()
