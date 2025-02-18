@@ -89,8 +89,8 @@ class PronunciationTrainer:
             real_text, recording_transcript)
         print('Time for matching transcripts: ', str(time.time()-start))
 
-        start_time, end_time = self.getWordLocationsFromRecordInSeconds(
-            word_locations, mapped_words_indices)
+        # start_time, end_time = self.getWordLocationsFromRecordInSeconds(
+        #     word_locations, mapped_words_indices)
         print('a')
         pronunciation_accuracy, current_words_pronunciation_accuracy = self.getPronunciationAccuracy(
             real_and_transcribed_words)  # _ipa
@@ -100,7 +100,7 @@ class PronunciationTrainer:
         print('c')
         result = {'recording_transcript': recording_transcript,
                   'real_and_transcribed_words': real_and_transcribed_words,
-                  'recording_ipa': recording_ipa, 'start_time': start_time, 'end_time': end_time,
+                  'recording_ipa': recording_ipa,
                   'real_and_transcribed_words_ipa': real_and_transcribed_words_ipa, 'pronunciation_accuracy': pronunciation_accuracy,
                   'pronunciation_categories': pronunciation_categories,
                   }

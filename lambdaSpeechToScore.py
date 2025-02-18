@@ -90,8 +90,6 @@ def lambda_handler(event, context):
            'real_transcripts': real_transcripts, 'matched_transcripts': matched_transcripts,
            'real_transcripts_ipa': real_transcripts_ipa, 'matched_transcripts_ipa': matched_transcripts_ipa,
            'pair_accuracy_category': pair_accuracy_category,
-           'start_time': result['start_time'],
-           'end_time': result['end_time'],
            'is_letter_correct_all_words': is_letter_correct_all_words,
            }
 

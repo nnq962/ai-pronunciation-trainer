@@ -90,18 +90,16 @@ def view_result():
 
         # Trích xuất thông tin cần thiết
         real_transcripts = result.get("real_transcripts")
-        ipa_transcript = result.get("ipa_transcript").lower()
-        real_transcripts_ipa = result.get("real_transcripts_ipa").lower()
+        ipa_transcript = result.get("ipa_transcript")
+        real_transcripts_ipa = result.get("real_transcripts_ipa")
         matched_transcripts_ipa = result.get("matched_transcripts_ipa")
         is_letter_correct_all_words = result.get("is_letter_correct_all_words")
         pronunciation_accuracy = result.get("pronunciation_accuracy")
         matched_transcripts = result.get("matched_transcripts")
 
-        redundant_ipa = find_leftover_words(matched_transcripts_ipa, normalize_text(ipa_transcript))
-        print('ipa_transcript', normalize_text(ipa_transcript))
+        print('ipa_transcript', ipa_transcript)
         print('matched_transcripts', matched_transcripts)
         print("Matched", matched_transcripts_ipa)
-        print('redudant', redundant_ipa)
         print("real_transcripts_ipa", real_transcripts_ipa)
         normalize_matched = utils.reinsert_dashes(matched_transcripts, matched_transcripts_ipa)
         print(normalize_matched)
@@ -114,26 +112,22 @@ def view_result():
         print('loss:', loss)
         re_ipa_matched = utils.reinsert_missing_ipa(normalize_matched, loss)
         print('re_ipa_matched', re_ipa_matched)
-        result_3, error_count = utils.process_line_3_v3(real_transcripts_ipa, re_ipa_matched, ipa_transcript)
-        print("result_3:", result_3)
-        result_4 = utils.process_line_4_v1(normalize_matched, result_3, loss)
-        print("result_4:", result_4)
         check_diff, error_count = utils.check_diff(re_ipa_matched, real_transcripts_ipa)
         print("check_diff:", check_diff)
         result_2 = utils.process_line_2_v3(real_transcripts_ipa, check_diff, loss)
- 
+        accuracy = utils.calculate_accuracy(result_2)
+
         print("-" * 80)
         print("COUNT =", error_count)
         print("Original pronunciation_accuracy:", pronunciation_accuracy)
 
-        pronunciation_accuracy = int(pronunciation_accuracy)
-        adjusted_score = max(pronunciation_accuracy - (error_count * 10), 0)
+        # pronunciation_accuracy = int(pronunciation_accuracy)
+        # adjusted_score = max(pronunciation_accuracy - (error_count * 10), 0)
 
         line1 = utils.convert_highlighted_text_to_json(highlighted_text=utils.convert_color_style_to_class(result_1), key_name="Real transcript")
         line2 = utils.convert_highlighted_text_to_json(highlighted_text=result_2, key_name="Real transcripts ipa")
-        print(result_4)
-        line3 = utils.convert_highlighted_text_to_json(highlighted_text=result_4, key_name="Your transcripts ipa")
-        line4 = {"Pronunciation Accuracy": adjusted_score}
+        line3 = utils.convert_highlighted_text_to_json(highlighted_text=ipa_transcript, key_name="Your transcripts ipa")
+        line4 = {"Pronunciation Accuracy": accuracy}
 
         # Chuyển đổi từ JSON string thành dictionary (Python object)
         json_line1 = json.loads(line1)
@@ -161,50 +155,13 @@ def view_result():
             "result.html",
             colored_words=result_1,
             corrected_ipa=result_2,
-            highlighted_ipa=result_4,
-            pronunciation_accuracy=adjusted_score
+            highlighted_ipa=ipa_transcript,
+            pronunciation_accuracy=accuracy
         )
     
     except Exception as e:
         print(f"Error occurred: {e}")  # Log lỗi chi tiết
         return f"Internal Server Error: {e}", 500
-
-def split_ipa_into_characters(matched_transcripts_ipa):
-    # Tách thành danh sách các từ
-    words = matched_transcripts_ipa.split()
-    
-    # Tách từng từ thành danh sách ký tự
-    ipa_character_list = [list(word) for word in words]
-    
-    return ipa_character_list
-
-
-def find_leftover_words(matched_text, transcript_text):
-    # Chuẩn hóa: Xóa phần đầu và loại bỏ dấu câu
-    # def clean_text(text):
-    #     text = re.sub(r"[^\wɪʊɔæəɚɑɒɛʌθðŋʃʒˌˈ ]", "", text)  # Xóa dấu câu, giữ ký tự IPA
-    #     return text.lower().strip().split()
-
-    matched_tokens = matched_text.lower().strip().split()
-    transcript_tokens = transcript_text.lower().strip().split()
-
-    # Lọc ra từ thừa bằng cách duyệt từng phần tử
-    matched_temp = matched_tokens.copy()
-    redundant = []
-    
-    for token in transcript_tokens:
-        if token in matched_temp:
-            matched_temp.remove(token)  # Xóa phần tử đã match để tránh duplicate match
-        else:
-            redundant.append(token)  # Thêm vào danh sách từ dư
-    
-    return redundant
-
-import unicodedata
-
-def normalize_text(text):
-    return unicodedata.normalize("NFKD", text)
-
 
 if __name__ == "__main__":
     language = 'en'
