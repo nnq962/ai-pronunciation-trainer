@@ -161,123 +161,57 @@ def process_line_2(real_transcripts_ipa, ipa_transcript):
             # Không làm gì, vì ta chỉ hiển thị real_transcripts_ipa.
             continue
     
-    return "".join(result)
+    return "".join(result), 
 # ----------------------------------------------------------------
-def process_line_2_v3(ipa1, differences, loss):
-    import re
-
-    # Tạo mapping từ từ có lỗi thay thế sang danh sách differences của từ đó
-    diff_by_word = {}
-    for diff in differences:
-        word = diff["word"]
-        diff_by_word.setdefault(word, []).append(diff)
-    
-    # Tạo mapping từ từ có lỗi thiếu ký tự (loss) sang danh sách loss của từ đó
-    loss_by_word = {}
-    for l in loss:
-        word = l["correct_word"]
-        loss_by_word.setdefault(word, []).append(l)
-    
-    # Tách ipa1 thành danh sách các từ (giả sử cách nhau bởi khoảng trắng)
-    ipa_words = ipa1.split()
-    highlighted_words = []
-    expected_words = []  # Thêm dòng chứa expected
-
-    # Duyệt qua từng từ trong câu
-    for idx, word in enumerate(ipa_words):
-        # Lọc differences chỉ cho từ có vị trí trùng với position_word
-        pos_to_diff = {d["position"]: d for d in diff_by_word.get(word, []) if d.get("position_word") == idx}
-        pos_to_loss = {l["position"]: l for l in loss_by_word.get(word, [])}
-        
-        highlighted_chars = []
-        expected_chars = []
-        
-        i = 0
-        while i < len(word):
-            if i in pos_to_loss:
-                loss_item = pos_to_loss[i]
-                # Chèn ký tự bị thiếu (bôi vàng)
-                highlighted_chars.append(
-                    f'<span class="highlight-yellow">{loss_item["expected"]}</span>'
-                )
-                expected_chars.append(f'<span class="expected">{loss_item["expected"]}</span>')
-
-                # Bỏ qua các ký tự gốc tương ứng với loss (tăng index theo độ dài của loss)
-                i += len(loss_item["expected"])
-                continue
-            else:
-                if i in pos_to_diff:
-                    # Bôi đỏ ký tự sai
-                    highlighted_chars.append(
-                        f'<span class="highlight-red">{word[i]}</span>'
-                    )
-                    # Thêm ký tự đúng vào dòng expected
-                    expected_chars.append(f'<span class="expected">{pos_to_diff[i]["expected"]}</span>')
-                else:
-                    # Giữ ký tự gốc (bôi xanh)
-                    highlighted_chars.append(
-                        f'<span class="highlight-green">{word[i]}</span>'
-                    )
-                    # Nếu không có lỗi, vẫn giữ ký tự gốc nhưng dưới dạng khoảng trắng để căn chỉnh
-                    expected_chars.append(f'<span class="expected">&nbsp;</span>')
-                i += 1
-
-        # Nếu có loss ở cuối từ, thêm vào
-        if i in pos_to_loss:
-            loss_item = pos_to_loss[i]
-            highlighted_chars.append(f'<span class="highlight-yellow">{loss_item["expected"]}</span>')
-            expected_chars.append(f'<span class="expected">{loss_item["expected"]}</span>')
-
-        highlighted_word = "".join(highlighted_chars)
-        expected_word = "".join(expected_chars)
-
-        highlighted_words.append(highlighted_word)
-        expected_words.append(expected_word)
-
-    # Sử dụng bảng để căn chỉnh
-    result = f"""
-    <table style="border-spacing: 0px; font-family: monospace;">
-        <tr><td>{' '.join(highlighted_words)}</td></tr>
-        <tr><td>{' '.join(expected_words)}</td></tr>
-    </table>
+def process_line_2_v3(text1, text2):
     """
-    return result
-# ----------------------------------------------------------------
-def check_diff(re_ipa_matched, real_transcripts_ipa):
-    real_words = real_transcripts_ipa.split()
-    ipa_words = re_ipa_matched.split()
+    Tạo HTML cho text1 với các từ bị mất hoàn toàn được bọc trong <span class="highlight-red">.
+    Chỉ thu thập các từ hoàn toàn bị mất trong text1 (so với text2).
+    
+    Args:
+        text1 (str): Văn bản gốc (chuẩn)
+        text2 (str): Văn bản cần so sánh
+    Returns:
+        tuple: (html_đã_bôi_đỏ, từ_bị_mất)
+    """
+    words1 = text1.split()
+    words2 = text2.split()
 
-    differences = []
-    error_count = 0
+    diff = list(difflib.ndiff(words1, words2))  # Chuyển diff thành list để dễ thao tác
+    highlighted_text1 = []
+    lost_words = []  # Danh sách từ bị mất hoàn toàn
+    current_diff = []  # Buffer để gom nhóm từ bị mất
+    
+    # Kiểm tra các từ có thực sự bị mất hoàn toàn không
+    words2_set = set(words2)  # Tập hợp các từ trong text2 để kiểm tra sự tồn tại nhanh hơn
 
-    # So sánh từng cặp từ theo vị trí
-    for i, real_word in enumerate(real_words):
-        temp_real_word = re.sub(r"[.,?!…]ˈ", "",real_word)
-        # Nếu ipa có ít từ hơn real, tránh lỗi IndexError
-        temp_ipa_word = re.sub(r"[.,?!…]ˈ", "",ipa_words[i]) if i < len(ipa_words) else ""
+    for d in diff:
+        if d[0] == ' ':
+            if current_diff:
+                highlighted_text1.append(
+                    f'<span class="highlight-red">{" ".join(current_diff)}</span>'
+                )
+                current_diff = []
+            highlighted_text1.append(d[2:])
+            
+        elif d[0] == '-':  
+            word = d[2:]
+            if word not in words2_set:  # Chỉ thêm nếu từ bị mất hoàn toàn
+                current_diff.append(word)
+                lost_words.append(word)  # Thêm từ bị mất vào danh sách
         
-        # Lấy độ dài so sánh là max của 2 từ
-        max_len = max(len(temp_ipa_word), len(temp_real_word))
-        for j in range(max_len):
-            if j >= len(temp_real_word):
-                break
-            # Nếu chỉ số vượt quá độ dài của từ, sử dụng ký tự cuối cùng làm so sánh
-            expected = temp_ipa_word[j] if j < len(temp_ipa_word) else (temp_ipa_word[-1] if temp_ipa_word else None)
-            actual = temp_real_word[j]
-            if expected != actual:
-                differences.append({
-                    "word": real_word,      # từ có lỗi trong real_transcripts_ipa
-                    "position": j,         # vị trí ký tự so sánh
-                    "expected": expected,  # ký tự đúng theo ipa_words
-                    "actual": actual,      # ký tự sai trong real_transcripts_ipa
-                    "wrong_word": ipa_words[i],
-                    "position_word": i  # vị trí trong câu
-                })
-                error_count += 1
+    # Xử lý buffer cuối cùng nếu còn
+    if current_diff:
+        highlighted_text1.append(
+            f'<span class="highlight-red">{" ".join(current_diff)}</span>'
+        )
 
-    return differences, error_count
+    highlighted_html = ' '.join(highlighted_text1)
+    lost_str = ' '.join(lost_words)  # Ghép lại thành chuỗi
+
+    return highlighted_html, lost_str
+
 # ----------------------------------------------------------------
-
 def process_line_3_v3(real_transcripts_ipa, matched_transcripts_ipa, ipa_transcript):
     real_words = real_transcripts_ipa.split()
     ipa_words = matched_transcripts_ipa.split()
@@ -314,7 +248,7 @@ def process_line_3_v3(real_transcripts_ipa, matched_transcripts_ipa, ipa_transcr
     return differences, error_count
 
 # ----------------------------------------------------------------
-def process_line_4_v1(ipa1, differences, loss):
+def process_line_4_v1(ipa1, differences, extra_words, loss, lost_segments):
     """
     ipa1: chuỗi IPA hoàn chỉnh (ví dụ: "tʃɪkən kʊkɪŋ")
     differences: danh sách dict cho lỗi thay thế ký tự, mỗi dict có cấu trúc:
@@ -325,6 +259,7 @@ def process_line_4_v1(ipa1, differences, loss):
             "actual": ...,         # ký tự sai
             "position_word": i     # vị trí của từ trong câu (ipa_words)
         }
+    extra_words: danh sách các từ thừa cần bôi đỏ toàn bộ (với số lượng cụ thể)
     loss: danh sách dict cho các ký tự bị thiếu, mỗi dict có cấu trúc:
         {
             "word": ipa_word,      # từ bị thiếu ký tự
@@ -333,6 +268,7 @@ def process_line_4_v1(ipa1, differences, loss):
         }
     
     Hàm trả lại chuỗi ipa1 được bôi màu:
+      - Nếu từ nằm trong extra_words → bôi đỏ toàn bộ từ (áp dụng theo số lượng cho phép).
       - Với từ có lỗi thay thế (trong differences) → ký tự sai (actual) được bôi đỏ,
         *nhưng chỉ áp dụng cho từ có vị trí trùng với giá trị position_word trong differences*.
       - Với từ bị thiếu ký tự (trong loss) → chèn ký tự đúng (expected) được bôi vàng.
@@ -353,12 +289,29 @@ def process_line_4_v1(ipa1, differences, loss):
         word = l["word"]
         loss_by_word.setdefault(word, []).append(l)
     
+    # Tạo một dictionary đếm số lượng extra word theo từng từ
+    extra_count = {}
+    for w in extra_words:
+        extra_count[w] = extra_count.get(w, 0) + 1
+    
+    # Khởi tạo counter cho việc sử dụng extra word
+    extra_usage = {}
+
     # Tách ipa1 thành danh sách các từ (giả sử cách nhau bởi khoảng trắng)
     ipa_words = ipa1.split()
     highlighted_words = []
     
     # Sử dụng enumerate để biết vị trí của từ trong câu
     for idx, word in enumerate(ipa_words):
+        # Nếu từ nằm trong extra_words và số lần sử dụng chưa vượt quá số lượng cho phép
+        if word in extra_count:
+            used = extra_usage.get(word, 0)
+            if used < extra_count[word]:
+                extra_usage[word] = used + 1
+                highlighted_word = f'<span class="highlight-red">{word}</span>'
+                highlighted_words.append(highlighted_word)
+                continue  # chuyển sang từ tiếp theo
+        # Nếu không, xử lý theo các lỗi khác (differences và loss)
         # Lọc differences chỉ cho từ có vị trí trùng với position_word
         pos_to_diff = {d["position"]: d for d in diff_by_word.get(word, []) if d.get("position_word") == idx}
         pos_to_loss = {l["position"]: l for l in loss_by_word.get(word, [])}
@@ -390,10 +343,16 @@ def process_line_4_v1(ipa1, differences, loss):
                         highlighted_chars.append(
                             f'<span class="highlight-green">{word[i]}</span>'
                         )
+
         highlighted_word = "".join(highlighted_chars)
         highlighted_words.append(highlighted_word)
-    
+
     result = " ".join(highlighted_words)
+
+    if lost_segments:
+        # Thêm 1 dòng break (<br/>) + span màu tím
+        result += f'<br/><span class="highlight-purple"> Missing word: {lost_segments}</span>'
+    
     return result
 
 # ----------------------------------------------------------------
@@ -458,7 +417,6 @@ def find_missing_letters(correct_word, matched_word):
             if missing_chars:
                 differences.append({
                     "word": matched_word,
-                    "correct_word": correct_word,
                     "position": missing_start,
                     "expected": missing_chars
                 })
@@ -476,7 +434,6 @@ def find_missing_letters(correct_word, matched_word):
         missing_chars += correct_word[i:]
         differences.append({
             "word": matched_word,
-            "correct_word": correct_word,
             "position": missing_start if missing_start is not None else len(matched_word),
             "expected": missing_chars
         })
@@ -496,7 +453,8 @@ def compare_ipa(ipa1, ipa2):
     ipa2_words = ipa2.split()
     
     loss = []
-    for word1, word2 in zip(ipa1_words, ipa2_words):
+
+    for word1, word2 in zip(ipa1_words, ipa2_words):   
         diff = find_missing_letters(word1, word2)
         if diff:
             loss.extend(diff)
@@ -562,3 +520,12 @@ def reinsert_missing_ipa(matched_transcripts_ipa, loss):
 
 # result = reinsert_missing_ipa(matched_transcripts_ipa, loss)
 # print("Result IPA:", result)
+
+# Ví dụ sử dụng:
+real_transcripts_ipa = "ju hæv kɔt ðə θif."
+normalize_matched    = "ju hæv kɔt ð θif."
+
+loss = compare_ipa(real_transcripts_ipa, normalize_matched)
+print("loss:", loss)
+normalize_matched = reinsert_missing_ipa(normalize_matched, loss)
+print(normalize_matched)

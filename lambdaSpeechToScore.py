@@ -48,14 +48,11 @@ def lambda_handler(event, context):
         tmp_name = tmp.name
         signal, fs = audioread_load(tmp_name)
     signal = transform(torch.Tensor(signal)).unsqueeze(0)
+    
 
 
     result = trainer_SST_lambda[language].processAudioForGivenText(
         signal, real_text)
-
-    #start = time.time()
-    #os.remove(random_file_name)
-    #print('Time for deleting file: ', str(time.time()-start))
 
     start = time.time()
     real_transcripts_ipa = ' '.join(
@@ -67,8 +64,6 @@ def lambda_handler(event, context):
         [word[0] for word in result['real_and_transcribed_words']])
     matched_transcripts = ' '.join(
         [word[1] for word in result['real_and_transcribed_words']])
-    
-    print(matched_transcripts)
     
     words_real = real_transcripts.lower().split()
     mapped_words = matched_transcripts.split()

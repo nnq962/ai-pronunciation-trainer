@@ -50,6 +50,7 @@ class PronunciationTrainer:
     def getTranscriptAndWordsLocations(self, audio_length_in_samples: int):
 
         audio_transcript = self.asr_model.getTranscript()
+        audio_transcript = self.convert_numbers_in_text(audio_transcript)
         word_locations_in_samples = self.asr_model.getWordLocations()
 
         fade_duration_in_samples = 0.05*self.sampling_rate
@@ -78,6 +79,7 @@ class PronunciationTrainer:
     def processAudioForGivenText(self, recordedAudio: torch.Tensor = None, real_text=None):
 
         start = time.time()
+        real_text = self.convert_numbers_in_text(real_text)
         recording_transcript, recording_ipa, word_locations = self.getAudioTranscript(
             recordedAudio)
         print('Time for NN to transcript audio: ', str(time.time()-start))
@@ -89,13 +91,13 @@ class PronunciationTrainer:
 
         start_time, end_time = self.getWordLocationsFromRecordInSeconds(
             word_locations, mapped_words_indices)
-
+        print('a')
         pronunciation_accuracy, current_words_pronunciation_accuracy = self.getPronunciationAccuracy(
             real_and_transcribed_words)  # _ipa
-
+        print('b')
         pronunciation_categories = self.getWordsPronunciationCategory(
             current_words_pronunciation_accuracy)
-
+        print('c')
         result = {'recording_transcript': recording_transcript,
                   'real_and_transcribed_words': real_and_transcribed_words,
                   'recording_ipa': recording_ipa, 'start_time': start_time, 'end_time': end_time,
@@ -123,19 +125,35 @@ class PronunciationTrainer:
     def getWordLocationsFromRecordInSeconds(self, word_locations, mapped_words_indices) -> list:
         start_time = []
         end_time = []
+        print("mapped_words_indices:", mapped_words_indices)
+        print("len(word_locations):", len(word_locations))
         for word_idx in range(len(mapped_words_indices)):
             start_time.append(float(word_locations[mapped_words_indices[word_idx]]
                                     [0])/self.sampling_rate)
             end_time.append(float(word_locations[mapped_words_indices[word_idx]]
                                   [1])/self.sampling_rate)
         return ' '.join([str(time) for time in start_time]), ' '.join([str(time) for time in end_time])
+    
+    def convert_numbers_in_text(self, text):
+        import re
+        import num2words
+        # Tìm tất cả các số trong văn bản
+        numbers = re.findall(r'\d+', text)
+
+        for num in numbers:
+            # Chuyển số thành chữ
+            word = num2words.num2words(int(num), lang='en')
+            # Thay thế số bằng chữ trong chuỗi gốc
+            text = text.replace(num, word, 1)  # Thay thế số đầu tiên tìm thấy
+
+        return text
 
     ##################### END ASR Functions ###########################
 
     ##################### Evaluation Functions ###########################
     def matchSampleAndRecordedWords(self, real_text, recorded_transcript):
         words_estimated = recorded_transcript.split()
-
+        
         if real_text is None:
             words_real = self.current_transcript[0].split()
         else:

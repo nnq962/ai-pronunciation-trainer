@@ -110,14 +110,17 @@ def view_result():
             return "No pronunciation data available.", 404
         
         result_1 = utils.process_line_1(real_transcripts, is_letter_correct_all_words)
-        result_2 = utils.process_line_2_v3(real_transcripts_ipa, ipa_transcript)
         loss = utils.compare_ipa(real_transcripts_ipa, normalize_matched)
         print('loss:', loss)
         re_ipa_matched = utils.reinsert_missing_ipa(normalize_matched, loss)
         print('re_ipa_matched', re_ipa_matched)
-        result_3, error_count = utils.process_line_3_v3(real_transcripts_ipa, re_ipa_matched)
+        result_3, error_count = utils.process_line_3_v3(real_transcripts_ipa, re_ipa_matched, ipa_transcript)
         print("result_3:", result_3)
-        result_4 = utils.process_line_4_v1(ipa_transcript, result_3, redundant_ipa, loss)
+        result_4 = utils.process_line_4_v1(normalize_matched, result_3, loss)
+        print("result_4:", result_4)
+        check_diff, error_count = utils.check_diff(re_ipa_matched, real_transcripts_ipa)
+        print("check_diff:", check_diff)
+        result_2 = utils.process_line_2_v3(real_transcripts_ipa, check_diff, loss)
  
         print("-" * 80)
         print("COUNT =", error_count)
