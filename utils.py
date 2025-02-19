@@ -157,6 +157,18 @@ def process_line_2_v3(ipa1, differences, loss):
         
         i = 0
         while i < len(word):
+            if word[i] == "ˈ":
+                highlighted_chars.append(
+                        f'<span class="highlight-green">{word[i]}</span>'
+                    )
+                expected_chars.append(f'<span class="expected">&nbsp;</span>')
+                    
+                    # Loại bỏ ký tự "ˈ" khỏi word bằng cách tạo một phiên bản mới không có ký tự đó
+                word = word[:i] + word[i+1:]
+                    
+                    # Do đã loại bỏ ký tự hiện tại, cần giữ nguyên vị trí i để không bỏ qua ký tự tiếp theo
+                continue
+    
             if i in pos_to_loss:
                 loss_item = pos_to_loss[i]
                 # Chèn ký tự bị thiếu (bôi vàng)
@@ -169,11 +181,21 @@ def process_line_2_v3(ipa1, differences, loss):
                 i += len(loss_item["expected"])
                 continue
             else:
-                if i in pos_to_diff:
-                    # Bôi đỏ ký tự sai
+                if word[i] == "ˈ":
                     highlighted_chars.append(
-                        f'<span class="highlight-red">{word[i]}</span>'
+                        f'<span class="highlight-green">{word[i]}</span>'
                     )
+                    expected_chars.append(f'<span class="expected">-</span>')
+                    
+                    # Loại bỏ ký tự "ˈ" khỏi word bằng cách tạo một phiên bản mới không có ký tự đó
+                    word = word[:i] + word[i+1:]
+                    
+                    # Do đã loại bỏ ký tự hiện tại, cần giữ nguyên vị trí i để không bỏ qua ký tự tiếp theo
+                    continue
+
+                if i in pos_to_diff:                                    # Bôi đỏ ký tự sai
+                    highlighted_chars.append(
+                        f'<span class="highlight-red">{word[i]}</span>')
                     # Thêm ký tự đúng vào dòng expected
                     expected_chars.append(f'<span class="expected">{pos_to_diff[i]["expected"]}</span>')
                 else:
@@ -320,7 +342,7 @@ def find_missing_letters(correct_word, matched_word):
     """
     temp_correct_word = re.sub(r"[,?!…ˈ\.]", "", correct_word)
     temp_matched_word = re.sub(r"[,?!…ˈ\.]", "", matched_word)
-    print("temp_correct_word", temp_correct_word)
+    print("temp_correct_word", correct_word)
     # Bước 1: Kiểm tra subsequence
     j = 0
     for i in range(len(temp_correct_word)):
@@ -360,7 +382,7 @@ def find_missing_letters(correct_word, matched_word):
         differences.append({
             "word": matched_word,
             "correct_word": correct_word,
-            "position": missing_start if missing_start is not None else len(matched_word),
+            "position": missing_start if missing_start is not None else len(temp_matched_word),
             "expected": missing_chars
         })
 
@@ -422,7 +444,7 @@ def reinsert_missing_ipa(matched_transcripts_ipa, loss):
         new_word = word
         offset = 0  # offset tăng khi ta chèn thêm ký tự
         for corr in corrections:
-            pos = corr["position"] + offset
+            pos = corr["position"] + offset + 1
             # Chèn chuỗi ký tự cần bổ sung vào new_word tại vị trí pos
             new_word = new_word[:pos] + corr["expected"] + new_word[pos:]
             offset += len(corr["expected"])
@@ -435,20 +457,30 @@ def reinsert_missing_ipa(matched_transcripts_ipa, loss):
 # ----------------------------------------------------------------
 
 def calculate_accuracy(html):
+    from bs4 import BeautifulSoup
+
     # Parse HTML
     soup = BeautifulSoup(html, 'html.parser')
     
-    # Tìm tất cả các span có class chứa "highlight-green" hoặc "highlight-red"
-    tokens = soup.find_all('span', class_=lambda c: c and ('highlight-green' in c or 'highlight-red' in c))
+    # Tìm tất cả các span có class chứa "highlight-green", "highlight-red" hoặc "highlight-yellow"
+    tokens = soup.find_all('span', class_=lambda c: c and (
+        'highlight-green' in c or 'highlight-red' in c or 'highlight-yellow' in c))
     
-    total_tokens = len(tokens)
-    # Đếm số token có class "highlight-green"
-    green_tokens = sum(1 for token in tokens if 'highlight-green' in token.get('class', []))
+    # Định nghĩa tập hợp các ký tự dấu câu cần bỏ qua
+    punctuation_set = {",", "?", "!", "…", "ˈ", "."}
+    
+    # Lọc bỏ các token mà nội dung nằm trong tập các dấu câu
+    filtered_tokens = [token for token in tokens if token.get_text() not in punctuation_set]
+    
+    total_tokens = len(filtered_tokens)
+    # Đếm số token có class "highlight-green" trong danh sách đã lọc
+    green_tokens = sum(1 for token in filtered_tokens if 'highlight-green' in token.get('class', []))
     
     if total_tokens == 0:
         return 0
     accuracy = green_tokens / total_tokens * 100
     return round(accuracy, 1)
+
 
 # ----------------------------------------------------------------
 
