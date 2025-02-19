@@ -33,6 +33,39 @@ for language in available_languages:
 
 lambda_translate_new_sample = False
 
+predefined_samples = {
+    'de': ["Hallo, wie geht es dir?", "Das ist ein Beispiel.", "Ich liebe Programmieren."],
+    'en': ["A horse runs quickly."]
+}
+
+# def lambda_handler(event, context):
+#     body = json.loads(event['body'])
+
+#     category = int(body['category'])
+#     language = body['language']
+
+#     # Lấy danh sách mẫu mong muốn
+#     available_samples = predefined_samples.get(language, [])
+
+#     if not available_samples:
+#         return json.dumps({'error': 'No predefined samples available for this language'})
+
+#     # Chọn ngẫu nhiên từ danh sách mẫu mong muốn (hoặc chọn theo index)
+#     sample_idx = random.randint(0, len(available_samples) - 1)
+#     current_transcript = [available_samples[sample_idx]]
+
+#     translated_trascript = ""
+
+#     # Chuyển đổi sang IPA
+#     current_ipa = lambda_ipa_converter[language].convertToPhonem(current_transcript[0])
+
+#     result = {
+#         'real_transcript': current_transcript,
+#         'ipa_transcript': current_ipa,
+#         'transcript_translation': translated_trascript
+#     }
+
+#     return json.dumps(result)
 
 def lambda_handler(event, context):
 

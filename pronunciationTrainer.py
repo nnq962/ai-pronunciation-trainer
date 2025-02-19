@@ -87,17 +87,20 @@ class PronunciationTrainer:
         start = time.time()
         real_and_transcribed_words, real_and_transcribed_words_ipa, mapped_words_indices = self.matchSampleAndRecordedWords(
             real_text, recording_transcript)
+        
+        print("real_and_transcribed_words ", real_and_transcribed_words)
+        print("real_and_transcribed_words_ipa, ", real_and_transcribed_words_ipa)
         print('Time for matching transcripts: ', str(time.time()-start))
 
         # start_time, end_time = self.getWordLocationsFromRecordInSeconds(
         #     word_locations, mapped_words_indices)
-        print('a')
+
         pronunciation_accuracy, current_words_pronunciation_accuracy = self.getPronunciationAccuracy(
             real_and_transcribed_words)  # _ipa
-        print('b')
+
         pronunciation_categories = self.getWordsPronunciationCategory(
             current_words_pronunciation_accuracy)
-        print('c')
+
         result = {'recording_transcript': recording_transcript,
                   'real_and_transcribed_words': real_and_transcribed_words,
                   'recording_ipa': recording_ipa,
@@ -125,8 +128,6 @@ class PronunciationTrainer:
     def getWordLocationsFromRecordInSeconds(self, word_locations, mapped_words_indices) -> list:
         start_time = []
         end_time = []
-        print("mapped_words_indices:", mapped_words_indices)
-        print("len(word_locations):", len(word_locations))
         for word_idx in range(len(mapped_words_indices)):
             start_time.append(float(word_locations[mapped_words_indices[word_idx]]
                                     [0])/self.sampling_rate)
