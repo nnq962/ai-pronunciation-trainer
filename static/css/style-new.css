@@ -139,17 +139,9 @@ a.disabled {
 }
 
 .container-small {
-	position: fixed;
-	left: 68%;
-	top: 79%;
-	transform: translate(-0%, -0%);
-	height: 7%;
-	width: 30%;
-	background: #ffff;
-	overflow: hidden;
-	border-radius: 20px;
-	box-shadow: 0 0 20px 8px #d0d0d0;
+    display: none;
 }
+
 
 /* ############# Icon Button ##############  */
 
@@ -312,9 +304,7 @@ a.disabled {
 	background: #454857;
 	color: #bdbdbdbd;
 	font-size: 0.8em;
-	font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-		"Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji",
-		"Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+	font-family: "Dank Mono", "Fira Code", "Courier New", monospace;
 	transition: all 100ms linear;
 }
 
@@ -456,7 +446,7 @@ a.disabled {
 	}
 
 	.accuracy-text {
-		font-family: "Dank Mono", ui-monospace, monospace;
+		font-family: "Dank Mono", "Fira Code", "Courier New", monospace;
 		background: linear-gradient(to right,
 				rgb(54, 56, 80),
 				rgb(21, 60, 87));
@@ -468,4 +458,17 @@ a.disabled {
 		font-size: 0.8em;
 	}
 
+
+}
+
+.highlight-green {
+	color: green !important; /* hoặc màu khác bạn muốn */
+}
+
+.highlight-red {
+	color: red !important;   /* hoặc màu khác bạn muốn */
+}
+
+.highlight-yellow {
+	color: #FFC107 !important;   /* hoặc màu khác bạn muốn */
 }

@@ -87,7 +87,7 @@ def view_result():
         # Nếu kết quả là chuỗi JSON, chuyển thành dictionary
         if isinstance(result, str):
             result = json.loads(result)
-
+        print('a')
         # Trích xuất thông tin cần thiết
         real_transcripts = result.get("real_transcripts")
         ipa_transcript = result.get("ipa_transcript")
@@ -96,49 +96,34 @@ def view_result():
         is_letter_correct_all_words = result.get("is_letter_correct_all_words")
         pronunciation_accuracy = result.get("pronunciation_accuracy")
         matched_transcripts = result.get("matched_transcripts")
-
-        print('ipa_transcript', ipa_transcript)
-        print('matched_transcripts', matched_transcripts)
-        print("Matched", matched_transcripts_ipa)
-        print("real_transcripts_ipa", real_transcripts_ipa)
         normalize_matched = utils.reinsert_dashes(matched_transcripts, matched_transcripts_ipa)
-        print(normalize_matched)
-    
+        redundant = utils.find_leftover_words(matched_transcripts_ipa, ipa_transcript)
         if not result:
             return "No pronunciation data available.", 404
-        
+            
         result_1 = utils.process_line_1(real_transcripts, is_letter_correct_all_words)
         loss = utils.compare_ipa(real_transcripts_ipa, normalize_matched)
-        print('loss:', loss)
         re_ipa_matched = utils.reinsert_missing_ipa(normalize_matched, loss)
-        print('re_ipa_matched', re_ipa_matched)
         check_diff, error_count = utils.check_diff(re_ipa_matched, real_transcripts_ipa)
-        print("check_diff:", check_diff)
         result_2 = utils.process_line_2_v3(real_transcripts_ipa, check_diff, loss)
-        accuracy = utils.calculate_accuracy(result_2)
+        accuracy = utils.calculate_accuracy(result_2, redundant)
 
         print("-" * 80)
-        print("COUNT =", error_count)
-        print("Original pronunciation_accuracy:", pronunciation_accuracy)
-
-        # pronunciation_accuracy = int(pronunciation_accuracy)
-        # adjusted_score = max(pronunciation_accuracy - (error_count * 10), 0)
+        print("RESULT 1:", result_1)
+        print("RESULT 2:", result_2)
 
         line1 = utils.convert_highlighted_text_to_json(highlighted_text=utils.convert_color_style_to_class(result_1), key_name="Real transcript")
-        line2 = utils.convert_highlighted_text_to_json(highlighted_text=result_2, key_name="Real transcripts ipa")
-        line3 = utils.convert_highlighted_text_to_json(highlighted_text=ipa_transcript, key_name="Your transcripts ipa")
+        line2 = utils.parse_html_to_json(result_2)
         line4 = {"Pronunciation Accuracy": accuracy}
 
         # Chuyển đổi từ JSON string thành dictionary (Python object)
         json_line1 = json.loads(line1)
         json_line2 = json.loads(line2)
-        json_line3 = json.loads(line3)
 
         # Gộp tất cả vào một dictionary
         final_json = {
             **json_line1,
             **json_line2,
-            **json_line3,
             **line4
         }
 
@@ -146,7 +131,7 @@ def view_result():
         final_json_str = json.dumps(final_json, ensure_ascii=False, indent=2)
 
         print("\n=== Final JSON Output ===")
-        # print(final_json_str)
+        print(final_json_str)
 
         print("-" * 80)
 

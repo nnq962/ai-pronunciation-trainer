@@ -12,6 +12,7 @@ import numpy as np
 from torchaudio.transforms import Resample
 import io
 import tempfile
+import utils
 
 trainer_SST_lambda = {}
 trainer_SST_lambda['de'] = pronunciationTrainer.getTrainer("de")
@@ -73,7 +74,7 @@ def lambda_handler(event, context):
 
         mapped_letters, mapped_words_indices = wm.get_best_mapped_words(
             mapped_words[idx], word_real)
-        print("Test index", mapped_letters)
+
         is_letter_correct = wm.getWhichLettersWereTranscribedCorrectly(
             word_real, mapped_letters)  # , mapped_letters_indices)
 
@@ -84,15 +85,28 @@ def lambda_handler(event, context):
         [str(category) for category in result['pronunciation_categories']])
     print('Time to post-process results: ', str(time.time()-start))
 
+    ipa_transcript = result['recording_ipa']
+
+    normalize_matched = utils.reinsert_dashes(matched_transcripts, matched_transcripts_ipa)
+
+    redundant = utils.find_leftover_words(matched_transcripts_ipa, ipa_transcript)
+
+    loss = utils.compare_ipa(real_transcripts_ipa, normalize_matched)
+    re_ipa_matched = utils.reinsert_missing_ipa(normalize_matched, loss)
+    check_diff, error_count = utils.check_diff(re_ipa_matched, real_transcripts_ipa)
+    result_2 = utils.process_line_2_v3(real_transcripts_ipa, check_diff, loss)
+    accuracy = utils.calculate_accuracy(result_2, redundant)
+
     res = {'real_transcript': result['recording_transcript'],
            'ipa_transcript': result['recording_ipa'],
-           'pronunciation_accuracy': str(int(result['pronunciation_accuracy'])),
+           'pronunciation_accuracy': str(int(accuracy)),
            'real_transcripts': real_transcripts, 'matched_transcripts': matched_transcripts,
-           'real_transcripts_ipa': real_transcripts_ipa, 'matched_transcripts_ipa': matched_transcripts_ipa,
+           'real_transcripts_ipa_html': result_2, 'matched_transcripts_ipa': matched_transcripts_ipa,
            'pair_accuracy_category': pair_accuracy_category,
            'is_letter_correct_all_words': is_letter_correct_all_words,
+           'real_transcripts_ipa': real_transcripts_ipa
            }
-
+    
     return json.dumps(res)
 
 

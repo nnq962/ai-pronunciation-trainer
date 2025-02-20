@@ -168,7 +168,7 @@ def process_line_2_v3(ipa1, differences, loss):
                     
                     # Do đã loại bỏ ký tự hiện tại, cần giữ nguyên vị trí i để không bỏ qua ký tự tiếp theo
                 continue
-    
+            
             if i in pos_to_loss:
                 loss_item = pos_to_loss[i]
                 # Chèn ký tự bị thiếu (bôi vàng)
@@ -181,18 +181,6 @@ def process_line_2_v3(ipa1, differences, loss):
                 i += len(loss_item["expected"])
                 continue
             else:
-                if word[i] == "ˈ":
-                    highlighted_chars.append(
-                        f'<span class="highlight-green">{word[i]}</span>'
-                    )
-                    expected_chars.append(f'<span class="expected">-</span>')
-                    
-                    # Loại bỏ ký tự "ˈ" khỏi word bằng cách tạo một phiên bản mới không có ký tự đó
-                    word = word[:i] + word[i+1:]
-                    
-                    # Do đã loại bỏ ký tự hiện tại, cần giữ nguyên vị trí i để không bỏ qua ký tự tiếp theo
-                    continue
-
                 if i in pos_to_diff:                                    # Bôi đỏ ký tự sai
                     highlighted_chars.append(
                         f'<span class="highlight-red">{word[i]}</span>')
@@ -342,7 +330,6 @@ def find_missing_letters(correct_word, matched_word):
     """
     temp_correct_word = re.sub(r"[,?!…ˈ\.]", "", correct_word)
     temp_matched_word = re.sub(r"[,?!…ˈ\.]", "", matched_word)
-    print("temp_correct_word", correct_word)
     # Bước 1: Kiểm tra subsequence
     j = 0
     for i in range(len(temp_correct_word)):
@@ -456,7 +443,7 @@ def reinsert_missing_ipa(matched_transcripts_ipa, loss):
 
 # ----------------------------------------------------------------
 
-def calculate_accuracy(html):
+def calculate_accuracy(html, redundant):
     from bs4 import BeautifulSoup
 
     # Parse HTML
@@ -478,7 +465,10 @@ def calculate_accuracy(html):
     
     if total_tokens == 0:
         return 0
-    accuracy = green_tokens / total_tokens * 100
+    
+    accuracy = green_tokens / total_tokens * 100 - len(redundant) * 10
+    accuracy = 0 if accuracy < 0 else accuracy
+
     return round(accuracy, 1)
 
 
@@ -504,3 +494,46 @@ def find_leftover_words(matched_text, transcript_text):
             redundant.append(token)  # Thêm vào danh sách từ dư
     
     return redundant
+
+
+# ----------------------------------------------------------------
+
+def parse_html_to_json(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    rows = soup.find_all('tr')
+
+    def process_row(row_tag):
+        row_data = []
+        current_group = {"text": "", "class": None}
+        # Iterate over direct children of <td> to capture text nodes (spaces) outside <span>
+        td = row_tag.find('td')
+        for child in td.children:
+            if child.name is None:
+                # This is a NavigableString (text node)
+                text = str(child).replace('\xa0', ' ')
+                class_attr = ''  # no class for plain text
+            else:
+                # This is presumably a <span> tag
+                text = child.text.replace('\xa0', ' ')
+                class_list = child.get('class', [])
+                class_attr = class_list[0] if class_list else ''
+            
+            # Merge with current group if same class
+            if class_attr == current_group["class"]:
+                current_group["text"] += text
+            else:
+                # push old group if not empty
+                if current_group["text"]:
+                    row_data.append(current_group)
+                # start a new group
+                current_group = {"text": text, "class": class_attr}
+        # After loop, if there's leftover text in current_group
+        if current_group["text"]:
+            row_data.append(current_group)
+        
+        return row_data
+
+    first_row_data = process_row(rows[0])
+    second_row_data = process_row(rows[1])
+
+    return json.dumps({"row1": first_row_data, "row2": second_row_data}, ensure_ascii=False, indent=4)

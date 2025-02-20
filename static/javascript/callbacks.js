@@ -356,7 +356,7 @@ const startMediaDevice = () => {
                         document.getElementById("recordAudio").classList.add('disabled');
                         document.getElementById("main_title").innerHTML = page_title;
                         document.getElementById("pronunciation_accuracy").innerHTML = data.pronunciation_accuracy + "%";
-                        document.getElementById("ipa_script").innerHTML = data.real_transcripts_ipa
+                        document.getElementById("ipa_script").innerHTML = data.real_transcripts_ipa_html
 
                         lettersOfWordAreCorrect = data.is_letter_correct_all_words.split(" ")
 

@@ -88,8 +88,6 @@ class PronunciationTrainer:
         real_and_transcribed_words, real_and_transcribed_words_ipa, mapped_words_indices = self.matchSampleAndRecordedWords(
             real_text, recording_transcript)
         
-        print("real_and_transcribed_words ", real_and_transcribed_words)
-        print("real_and_transcribed_words_ipa, ", real_and_transcribed_words_ipa)
         print('Time for matching transcripts: ', str(time.time()-start))
 
         # start_time, end_time = self.getWordLocationsFromRecordInSeconds(
