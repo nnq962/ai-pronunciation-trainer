@@ -100,7 +100,7 @@ def view_result():
         redundant = utils.find_leftover_words(matched_transcripts_ipa, ipa_transcript)
         if not result:
             return "No pronunciation data available.", 404
-            
+                        
         result_1 = utils.process_line_1(real_transcripts, is_letter_correct_all_words)
         loss = utils.compare_ipa(real_transcripts_ipa, normalize_matched)
         re_ipa_matched = utils.reinsert_missing_ipa(normalize_matched, loss)

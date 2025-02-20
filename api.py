@@ -143,45 +143,45 @@ def view_result(request_id):
         if isinstance(raw_data, str):  # Nếu raw_data là chuỗi JSON, giải mã nó
             raw_data = json.loads(raw_data)
 
-        # Trích xuất thông tin cần thiết
-        real_transcripts = raw_data.get("real_transcripts")
-        ipa_transcript = raw_data.get("ipa_transcript")
-        real_transcripts_ipa = raw_data.get("real_transcripts_ipa")
-        matched_transcripts_ipa = raw_data.get("matched_transcripts_ipa")
-        is_letter_correct_all_words = raw_data.get("is_letter_correct_all_words")
-        pronunciation_accuracy = raw_data.get("pronunciation_accuracy")
-        pair_accuracy_category = raw_data.get("pair_accuracy_category")
+        # Giải mã chuỗi JSON từ key "data"
+        data = json.loads(result.get("data", "{}"))
 
-        if not raw_data:
+        # Trích xuất thông tin từ dictionary data
+        real_transcripts = data.get("real_transcripts")
+        ipa_transcript = data.get("ipa_transcript")
+        real_transcripts_ipa = data.get("real_transcripts_ipa")
+        matched_transcripts_ipa = data.get("matched_transcripts_ipa")
+        is_letter_correct_all_words = data.get("is_letter_correct_all_words")
+        pronunciation_accuracy = data.get("pronunciation_accuracy")
+        matched_transcripts = data.get("matched_transcripts")
+
+        normalize_matched = utils.reinsert_dashes(matched_transcripts, matched_transcripts_ipa)
+        redundant = utils.find_leftover_words(matched_transcripts_ipa, ipa_transcript)
+        if not result:
             return "No pronunciation data available.", 404
 
         # Xử lý dữ liệu màu sắc
         result_1 = utils.process_line_1(real_transcripts, is_letter_correct_all_words)
-        result_2 = utils.process_line_2_v3(real_transcripts_ipa, ipa_transcript)
-        result_3, error_count = utils.process_line_3_v2(real_transcripts_ipa, ipa_transcript)
+        loss = utils.compare_ipa(real_transcripts_ipa, normalize_matched)
+        re_ipa_matched = utils.reinsert_missing_ipa(normalize_matched, loss)
+        check_diff, error_count = utils.check_diff(re_ipa_matched, real_transcripts_ipa)
+        result_2 = utils.process_line_2_v3(real_transcripts_ipa, check_diff, loss)
+        accuracy = utils.calculate_accuracy(result_2, redundant)
+
 
         print("-" * 80)
-        print("Original pronunciation_accuracy:", pronunciation_accuracy)
-
-        # Điều chỉnh điểm phát âm
-        pronunciation_accuracy = int(pronunciation_accuracy)
-        adjusted_score = max(pronunciation_accuracy - (error_count * 10), 0)
-
         line1 = utils.convert_highlighted_text_to_json(highlighted_text=utils.convert_color_style_to_class(result_1), key_name="Real transcript")
-        line2 = utils.convert_highlighted_text_to_json(highlighted_text=result_2, key_name="Real transcripts ipa")
-        line3 = utils.convert_highlighted_text_to_json(highlighted_text=result_3, key_name="Your transcripts ipa")
-        line4 = {"Pronunciation Accuracy": adjusted_score}
+        line2 = utils.parse_html_to_json(result_2)
+        line4 = {"Pronunciation Accuracy": accuracy}
 
         # Chuyển đổi từ JSON string thành dictionary (Python object)
         json_line1 = json.loads(line1)
         json_line2 = json.loads(line2)
-        json_line3 = json.loads(line3)
 
         # Gộp tất cả vào một dictionary
         final_json = {
             **json_line1,
             **json_line2,
-            **json_line3,
             **line4
         }
 
@@ -197,8 +197,8 @@ def view_result(request_id):
             "result.html",
             colored_words=result_1,
             corrected_ipa=result_2,
-            highlighted_ipa=result_3,
-            pronunciation_accuracy=adjusted_score
+            highlighted_ipa=ipa_transcript,
+            pronunciation_accuracy=accuracy
         )
     
     except Exception as e:
