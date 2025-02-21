@@ -172,16 +172,18 @@ def view_result(request_id):
         print("-" * 80)
         line1 = utils.convert_highlighted_text_to_json(highlighted_text=utils.convert_color_style_to_class(result_1), key_name="Real transcript")
         line2 = utils.parse_html_to_json(result_2)
+        line3 = utils.convert_highlighted_text_to_json(highlighted_text=ipa_transcript, key_name="Your transcripts ipa")
         line4 = {"Pronunciation Accuracy": accuracy}
 
         # Chuyển đổi từ JSON string thành dictionary (Python object)
         json_line1 = json.loads(line1)
         json_line2 = json.loads(line2)
-
+        json_line3 = json.loads(line3)
         # Gộp tất cả vào một dictionary
         final_json = {
             **json_line1,
             **json_line2,
+            **json_line3,
             **line4
         }
 
